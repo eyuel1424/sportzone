@@ -1,0 +1,24 @@
+{
+  "name": "sportzone",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "homepage": "https://eyuel1424.github.io/sportzone",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.9"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  }
+}
