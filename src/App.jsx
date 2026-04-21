@@ -149,7 +149,12 @@ function formatDayHeader(dateStr) {
   if (gd.getTime()===tm.getTime()) return "Tomorrow";
   return d.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});
 }
-function isLiveStatus(n) { return n==="STATUS_IN_PROGRESS"||n==="STATUS_HALFTIME"||n==="STATUS_END_PERIOD"; }
+function isLiveStatus(n) {
+  if (!n) return false;
+  if (n==="STATUS_IN_PROGRESS"||n==="STATUS_HALFTIME"||n==="STATUS_END_PERIOD") return true;
+  const u=n.toUpperCase();
+  return u.includes("PROGRESS")||u.includes("HALFTIME")||u.includes("OVERTIME")||u.includes("ACTIVE")||u.includes("LIVE");
+}
 
 // ── UI Components ─────────────────────────────────────────────────────────────
 
@@ -353,17 +358,6 @@ function AllSportsView({ liveGames, loading, onGameClick }) {
         <div style={{ fontSize:15,color:"#5a6478",maxWidth:360,margin:"0 auto",lineHeight:1.7 }}>
           Pick a sport above to browse today's schedule and upcoming games.
         </div>
-        {/* Sport quick picks */}
-        <div style={{ display:"flex",gap:10,flexWrap:"wrap",justifyContent:"center",marginTop:28 }}>
-          {SPORTS.map(s=>(
-            <button key={s.id} onClick={()=>onGameClick(null, s, true)}
-              style={{ background:"#0f1420",border:"1px solid #1e2535",borderRadius:12,padding:"10px 18px",cursor:"pointer",fontSize:14,fontWeight:600,color:"#8898aa",fontFamily:"'DM Sans',sans-serif",transition:"all 0.2s" }}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(99,179,237,0.4)";e.currentTarget.style.color="#f0f0f0";}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor="#1e2535";e.currentTarget.style.color="#8898aa";}}>
-              {s.emoji} {s.label}
-            </button>
-          ))}
-        </div>
       </div>
     );
   }
@@ -437,7 +431,11 @@ export default function SportZone() {
   const timerRef = useRef(null);
 
   const fetchDay = useCallback(async (sport, dateStr) => {
-    const url=`https://site.api.espn.com/apis/site/v2/sports/${sport.sport}/${sport.league}/scoreboard?dates=${dateStr}&limit=100`;
+    // Today: no date param so ESPN returns live statuses correctly
+    const isToday = dateStr === offsetStr(0);
+    const url = isToday
+      ? `https://site.api.espn.com/apis/site/v2/sports/${sport.sport}/${sport.league}/scoreboard?limit=100`
+      : `https://site.api.espn.com/apis/site/v2/sports/${sport.sport}/${sport.league}/scoreboard?dates=${dateStr}&limit=100`;
     const res=await fetch(url); if(!res.ok) throw new Error("fail");
     return (await res.json()).events||[];
   },[]);
@@ -464,13 +462,27 @@ export default function SportZone() {
     if (isFirst) setLoadingLive(true);
     try {
       const results=await Promise.all(SPORTS.map(async sport=>{
-        const url=`https://site.api.espn.com/apis/site/v2/sports/${sport.sport}/${sport.league}/scoreboard?dates=${todayStr()}&limit=100`;
+        // No date param = ESPN returns truly current live state
+        const url=`https://site.api.espn.com/apis/site/v2/sports/${sport.sport}/${sport.league}/scoreboard?limit=100`;
         const res=await fetch(url); if(!res.ok) return [];
-        return ((await res.json()).events||[]).filter(g=>isLiveStatus(g.status?.type?.name)).map(g=>({...g,_sport:sport}));
+        const data=await res.json();
+        const events=data.events||[];
+        // Check both status name and completed flag
+        const live=events.filter(g=>{
+          const s=g.status?.type?.name||'';
+          const completed=g.status?.type?.completed===true;
+          if (completed) return false;
+          if (isLiveStatus(s)) return true;
+          // Also check if clock is running (period > 0 and not completed)
+          const period=g.status?.period||0;
+          const clock=g.status?.displayClock||'';
+          return period>0 && clock!=='' && clock!=='0:00' && !completed;
+        });
+        return live.map(g=>({...g,_sport:sport}));
       }));
       const live=results.flat();
       setLiveGames(live);
-      if (isFirst&&live.length===0) setTimeout(()=>fetchLiveAll(false),6000);
+      if (isFirst&&live.length===0) setTimeout(()=>fetchLiveAll(false),8000);
     } catch(e) {}
     if (isFirst) setLoadingLive(false);
   },[]);
@@ -549,7 +561,7 @@ export default function SportZone() {
               {lastUpdated&&<span key={tsKey} className="timestamp-flash" style={{ fontSize:11,color:"#3a4255" }}>Updated {lastUpdated.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span>}
               <button className="refresh-btn" onClick={handleRefresh} title="Refresh"
                 style={{ background:"#141820",border:"1px solid #1e2535",borderRadius:8,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",color:"#8898aa",fontSize:17 }}>
-                <span className={refreshing?"spinning":""}>↻</span>
+                <span className={refreshing?"spinning":""}>R</span>
               </button>
               <span style={{ fontSize:12,color:"#5a6478",fontWeight:500 }}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
             </div>
