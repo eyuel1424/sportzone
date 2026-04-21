@@ -157,6 +157,10 @@ function formatDayHeader(dateStr) {
   if (gd.getTime()===tm.getTime()) return "Tomorrow";
   return d.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});
 }
+function getDateKey(dateStr) {
+  const d=new Date(dateStr);
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+}
 function isLiveStatus(n) {
   if (!n) return false;
   if (n==="STATUS_IN_PROGRESS"||n==="STATUS_HALFTIME"||n==="STATUS_END_PERIOD") return true;
@@ -340,7 +344,7 @@ function GameDetail({ game, sport, onClose }) {
 
 // ── All Sports Homepage View ───────────────────────────────────────────────────
 
-function AllSportsView({ liveGames, loading, onGameClick }) {
+function AllSportsView({ liveGames, todayAllGames, loading, onGameClick }) {
   if (loading) {
     return (
       <div style={{ display:"flex",flexDirection:"column",gap:32 }}>
@@ -357,15 +361,46 @@ function AllSportsView({ liveGames, loading, onGameClick }) {
   }
 
   if (liveGames.length===0) {
+    // Group today games by sport
+    const todayGrouped = {};
+    todayAllGames.forEach(g=>{
+      const sid=g._sport?.id||"other";
+      if (!todayGrouped[sid]) todayGrouped[sid]=[];
+      todayGrouped[sid].push(g);
+    });
+    const hasTodayGames = todayAllGames.length > 0;
     return (
-      <div style={{ textAlign:"center",padding:"80px 20px" }}>
-        <div style={{ fontSize:52,marginBottom:16 }}>📺</div>
-        <div style={{ fontSize:24,fontWeight:700,color:"#f0f0f0",marginBottom:10,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:"1px" }}>
-          No Games Live Right Now
+      <div style={{ display:"flex",flexDirection:"column",gap:32 }}>
+        <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:-16 }}>
+          <span style={{ fontSize:13,fontWeight:700,color:"#5a6478",letterSpacing:"1px",textTransform:"uppercase" }}>
+            {hasTodayGames ? "No games live right now — here's what's on today" : "No games scheduled today"}
+          </span>
         </div>
-        <div style={{ fontSize:15,color:"#5a6478",maxWidth:360,margin:"0 auto",lineHeight:1.7 }}>
-          Pick a sport above to browse today's schedule and upcoming games.
-        </div>
+        {hasTodayGames ? (
+          Object.entries(todayGrouped).map(([sid,games])=>{
+            const sport=SPORTS.find(s=>s.id===sid);
+            return (
+              <div key={sid}>
+                <div style={{ fontSize:13,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",color:sport?.accent||"#5a6478",marginBottom:14,paddingBottom:10,borderBottom:`1px solid ${sport?.accent||"#141820"}22` }}>
+                  {sport?.emoji} {sport?.label}
+                </div>
+                <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14 }}>
+                  {games.map(g=><GameCard key={g.id} game={g} sport={sport} onClick={()=>onGameClick(g,sport,false)} />)}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div style={{ textAlign:"center",padding:"60px 20px" }}>
+            <div style={{ fontSize:52,marginBottom:16 }}>📺</div>
+            <div style={{ fontSize:24,fontWeight:700,color:"#f0f0f0",marginBottom:10,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:"1px" }}>
+              No Games Today
+            </div>
+            <div style={{ fontSize:15,color:"#5a6478",maxWidth:360,margin:"0 auto",lineHeight:1.7 }}>
+              Pick a sport above to browse upcoming games this week.
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -427,6 +462,7 @@ export default function SportZone() {
   const [activeSport,   setActiveSport]   = useState(ALL_SPORTS_ID);
   const [allGames,      setAllGames]      = useState({});
   const [liveGames,     setLiveGames]     = useState([]);
+  const [todayAllGames, setTodayAllGames] = useState([]);
   const [loadingLive,   setLoadingLive]   = useState(true);
   const [loading,       setLoading]       = useState(false);
   const [refreshing,    setRefreshing]    = useState(false);
@@ -469,27 +505,35 @@ export default function SportZone() {
   const fetchLiveAll = useCallback(async (isFirst=false) => {
     if (isFirst) setLoadingLive(true);
     try {
+      const todayKey = todayStr();
       const results=await Promise.all(SPORTS.map(async sport=>{
-        // No date param = ESPN returns truly current live state
         const url=`https://site.api.espn.com/apis/site/v2/sports/${sport.sport}/${sport.league}/scoreboard?limit=100`;
-        const res=await fetch(url); if(!res.ok) return [];
+        const res=await fetch(url); if(!res.ok) return {live:[], today:[]};
         const data=await res.json();
         const events=data.events||[];
-        // Check both status name and completed flag
-        const live=events.filter(g=>{
+        // Only include games from today
+        const todayEvents = events.filter(g=>{
+          const gameKey = getDateKey(g.date);
+          return gameKey === todayKey;
+        });
+        const live=todayEvents.filter(g=>{
           const s=g.status?.type?.name||'';
           const completed=g.status?.type?.completed===true;
           if (completed) return false;
           if (isLiveStatus(s)) return true;
-          // Also check if clock is running (period > 0 and not completed)
           const period=g.status?.period||0;
           const clock=g.status?.displayClock||'';
           return period>0 && clock!=='' && clock!=='0:00' && !completed;
         });
-        return live.map(g=>({...g,_sport:sport}));
+        return {
+          live: live.map(g=>({...g,_sport:sport})),
+          today: todayEvents.map(g=>({...g,_sport:sport}))
+        };
       }));
-      const live=results.flat();
+      const live=results.flatMap(r=>r.live);
+      const todayAll=results.flatMap(r=>r.today);
       setLiveGames(live);
+      setTodayAllGames(todayAll);
       if (isFirst&&live.length===0) setTimeout(()=>fetchLiveAll(false),8000);
     } catch(e) {}
     if (isFirst) setLoadingLive(false);
@@ -624,7 +668,7 @@ export default function SportZone() {
 
         {/* ALL SPORTS view */}
         {activeSport===ALL_SPORTS_ID&&(
-          <AllSportsView liveGames={liveGames} loading={loadingLive} onGameClick={handleAllSportsGameClick} />
+          <AllSportsView liveGames={liveGames} todayAllGames={todayAllGames} loading={loadingLive} onGameClick={handleAllSportsGameClick} />
         )}
 
         {/* SINGLE SPORT view */}
