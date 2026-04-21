@@ -33,13 +33,20 @@ const GLOBAL_STYLES = `
   .timestamp-flash { animation:flashUpdate 0.6s ease; }
   .detail-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.78); display:flex; align-items:center; justify-content:center; padding:20px; animation:fadeIn 0.2s ease; }
   .detail-panel { background:#0f1420; border:1px solid #1e2535; border-radius:20px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; padding:28px; display:flex; flex-direction:column; gap:22px; animation:fadeUp 0.25s ease both; }
-  .tabs-wrap { display:flex; gap:2px; flex-wrap:wrap; padding-bottom:2px; }
+  .tabs-wrap { display:flex; gap:2px; overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; scrollbar-width:none; -ms-overflow-style:none; }
+  .tabs-wrap::-webkit-scrollbar { display:none; }
+  .day-tabs { display:flex; gap:8px; margin-bottom:22px; overflow-x:auto; scrollbar-width:none; }
+  .day-tabs::-webkit-scrollbar { display:none; }
   @media (max-width:640px) {
     .detail-overlay { align-items:flex-end; padding:0; }
-    .detail-panel { border-radius:20px 20px 0 0; max-height:92vh; animation:slideUp 0.3s cubic-bezier(0.32,0.72,0,1) both; }
-    .hero-headline { font-size:42px!important; }
-    .hero-tagline  { font-size:14px!important; }
+    .detail-panel { border-radius:20px 20px 0 0; max-height:92vh; animation:slideUp 0.3s cubic-bezier(0.32,0.72,0,1) both; padding:20px 16px; }
+    .hero-headline { font-size:36px!important; letter-spacing:2px!important; }
+    .hero-tagline  { font-size:13px!important; }
+    .hero-section  { padding:20px 16px 16px!important; }
+    .header-date   { display:none!important; }
+    .header-timestamp { font-size:10px!important; }
     .sport-btn-label { display:none; }
+    .sport-btn { padding:6px 10px!important; }
   }
 `;
 
@@ -557,13 +564,15 @@ export default function SportZone() {
               <div style={{ width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#63b3ed,#3182ce)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>⚡</div>
               <span style={{ fontSize:26,fontWeight:800,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:"2px",color:"#f0f0f0" }}>SportZone</span>
             </div>
-            <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-              {lastUpdated&&<span key={tsKey} className="timestamp-flash" style={{ fontSize:11,color:"#3a4255" }}>Updated {lastUpdated.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span>}
+            <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+              {lastUpdated&&<span key={tsKey} className="timestamp-flash header-timestamp" style={{ fontSize:11,color:"#3a4255" }}>Updated {lastUpdated.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span>}
               <button className="refresh-btn" onClick={handleRefresh} title="Refresh"
-                style={{ background:"#141820",border:"1px solid #1e2535",borderRadius:8,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",color:"#8898aa",fontSize:17 }}>
-                <span className={refreshing?"spinning":""}>R</span>
+                style={{ background:"#141820",border:"1px solid #1e2535",borderRadius:8,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",color:"#8898aa",flexShrink:0 }}>
+                <svg className={refreshing?"spinning":""} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                </svg>
               </button>
-              <span style={{ fontSize:12,color:"#5a6478",fontWeight:500 }}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
+              <span className="header-date" style={{ fontSize:12,color:"#5a6478",fontWeight:500 }}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
             </div>
           </div>
 
@@ -594,8 +603,8 @@ export default function SportZone() {
       </div>
 
       {/* ── Hero headline — always visible ── */}
-      <div style={{ padding:"36px 20px 24px",maxWidth:1100,margin:"0 auto",animation:"heroFade 0.5s ease both" }}>
-        <h1 className="hero-headline" style={{ fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(40px,6.5vw,80px)",letterSpacing:"3px",color:"#f0f0f0",lineHeight:0.93,marginBottom:12 }}>
+      <div className="hero-section" style={{ padding:"24px 20px 16px",maxWidth:1100,margin:"0 auto",animation:"heroFade 0.5s ease both" }}>
+        <h1 className="hero-headline" style={{ fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(36px,6.5vw,80px)",letterSpacing:"3px",color:"#f0f0f0",lineHeight:0.93,marginBottom:10 }}>
           Never Miss<br />
           <span style={{ background:"linear-gradient(90deg,#63b3ed,#a78bfa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>The Game</span>
         </h1>
@@ -621,7 +630,7 @@ export default function SportZone() {
         {activeSport!==ALL_SPORTS_ID&&(
           <>
             {/* Day tabs */}
-            <div style={{ display:"flex",gap:8,marginBottom:22 }}>
+            <div className="day-tabs">
               {tabs.map(tab=>{
                 const active=activeDay===tab.key;
                 return (
