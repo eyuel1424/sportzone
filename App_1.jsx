@@ -33,20 +33,21 @@ const GLOBAL_STYLES = `
   .timestamp-flash { animation:flashUpdate 0.6s ease; }
   .detail-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.78); display:flex; align-items:center; justify-content:center; padding:20px; animation:fadeIn 0.2s ease; }
   .detail-panel { background:#0f1420; border:1px solid #1e2535; border-radius:20px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; padding:28px; display:flex; flex-direction:column; gap:22px; animation:fadeUp 0.25s ease both; }
-  .tabs-wrap { display:flex; gap:2px; overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; scrollbar-width:none; -ms-overflow-style:none; }
+  .tabs-wrap { display:flex; gap:2px; overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; scrollbar-width:none; -ms-overflow-style:none; -webkit-overflow-scrolling:touch; }
   .tabs-wrap::-webkit-scrollbar { display:none; }
-  .day-tabs { display:flex; gap:8px; margin-bottom:22px; overflow-x:auto; scrollbar-width:none; }
+  .day-tabs { display:flex; gap:8px; margin-bottom:22px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; -ms-overflow-style:none; -webkit-overflow-scrolling:touch; }
   .day-tabs::-webkit-scrollbar { display:none; }
+  .day-tabs button { flex-shrink:0; }
   @media (max-width:640px) {
     .detail-overlay { align-items:flex-end; padding:0; }
     .detail-panel { border-radius:20px 20px 0 0; max-height:92vh; animation:slideUp 0.3s cubic-bezier(0.32,0.72,0,1) both; padding:20px 16px; }
-    .hero-headline { font-size:36px!important; letter-spacing:2px!important; }
-    .hero-tagline  { font-size:13px!important; }
-    .hero-section  { padding:20px 16px 16px!important; }
+    .hero-headline { font-size:32px!important; letter-spacing:2px!important; margin-bottom:6px!important; }
+    .hero-tagline  { font-size:12px!important; max-width:100%!important; }
+    .hero-section  { padding:16px 16px 12px!important; }
     .header-date   { display:none!important; }
     .header-timestamp { font-size:10px!important; }
     .sport-btn-label { display:none; }
-    .sport-btn { padding:6px 10px!important; }
+    .sport-btn { padding:6px 10px!important; flex-shrink:0; }
   }
 `;
 
