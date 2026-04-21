@@ -8,7 +8,6 @@ const GLOBAL_STYLES = `
   ::-webkit-scrollbar { width:4px; height:4px; }
   ::-webkit-scrollbar-track { background:#0f1420; }
   ::-webkit-scrollbar-thumb { background:#2a2f3f; border-radius:4px; }
-
   @keyframes fadeUp    { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
   @keyframes slideUp   { from{transform:translateY(100%)} to{transform:translateY(0)} }
   @keyframes fadeIn    { from{opacity:0} to{opacity:1} }
@@ -18,7 +17,6 @@ const GLOBAL_STYLES = `
   @keyframes livePulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,59,59,0.5),0 4px 24px rgba(0,0,0,0.5)} 50%{box-shadow:0 0 0 5px rgba(255,59,59,0.1),0 4px 24px rgba(0,0,0,0.5)} }
   @keyframes heroFade  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
   @keyframes flashUpdate { 0%{opacity:1} 40%{opacity:0.3} 100%{opacity:1} }
-
   .card-hover { transition:transform 0.2s ease,border-color 0.2s ease,box-shadow 0.2s ease; cursor:pointer; }
   .card-hover:hover { transform:translateY(-3px); box-shadow:0 8px 32px rgba(0,0,0,0.5); }
   .card-live { border-color:rgba(255,59,59,0.5)!important; animation:livePulse 2.5s ease-in-out infinite; }
@@ -33,26 +31,19 @@ const GLOBAL_STYLES = `
   .skeleton { background:linear-gradient(90deg,#141820 25%,#1e2535 50%,#141820 75%); background-size:600px 100%; animation:shimmer 1.5s infinite; border-radius:12px; }
   .spinning { animation:spin 0.7s linear infinite; display:inline-block; }
   .timestamp-flash { animation:flashUpdate 0.6s ease; }
-
-  .hero-live-card { background:#0f1420; border:1px solid rgba(255,59,59,0.3); border-radius:14px; padding:14px 16px; min-width:200px; max-width:240px; flex-shrink:0; cursor:pointer; transition:transform 0.2s ease,border-color 0.2s ease; animation:livePulse 2.5s ease-in-out infinite; }
-  .hero-live-card:hover { transform:translateY(-3px); border-color:rgba(255,59,59,0.7)!important; }
-
-  .tabs-wrap { display:flex; gap:2px; flex-wrap:wrap; padding-bottom:2px; }
-
-  /* Bottom sheet on mobile */
   .detail-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.78); display:flex; align-items:center; justify-content:center; padding:20px; animation:fadeIn 0.2s ease; }
   .detail-panel { background:#0f1420; border:1px solid #1e2535; border-radius:20px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; padding:28px; display:flex; flex-direction:column; gap:22px; animation:fadeUp 0.25s ease both; }
-
-  @media (max-width: 640px) {
+  .tabs-wrap { display:flex; gap:2px; flex-wrap:wrap; padding-bottom:2px; }
+  @media (max-width:640px) {
     .detail-overlay { align-items:flex-end; padding:0; }
     .detail-panel { border-radius:20px 20px 0 0; max-height:92vh; animation:slideUp 0.3s cubic-bezier(0.32,0.72,0,1) both; }
     .hero-headline { font-size:42px!important; }
-    .hero-tagline { font-size:14px!important; }
-    .hero-live-card { min-width:170px; max-width:200px; padding:12px; }
-    .tabs-wrap { gap:1px; }
+    .hero-tagline  { font-size:14px!important; }
     .sport-btn-label { display:none; }
   }
 `;
+
+const ALL_SPORTS_ID = "all";
 
 const SPORTS = [
   { id:"nfl",      label:"NFL",              emoji:"🏈", sport:"football",   league:"nfl",            accent:"#4A90D9" },
@@ -114,7 +105,7 @@ const BROADCASTER_ALIASES = {
 const LEAGUE_FALLBACK = {
   epl:      [{ name:"Peacock", note:"Most Premier League matches on Peacock" }, { name:"USA Network", note:"Select matches on USA Network — stream via Fubo or Sling" }],
   ucl:      [{ name:"Paramount+", note:"Champions League on Paramount+" }, { name:"CBS", note:"Select marquee matches on CBS" }],
-  seriea:   [{ name:"Paramount+", note:"Serie A on Paramount+" }, { name:"CBS Sports Network", note:"Select matches on CBS Sports Network" }],
+  seriea:   [{ name:"Paramount+", note:"Serie A on Paramount+" }, { name:"CBS Sports Network", note:"Select on CBS Sports Network" }],
   laliga:   [{ name:"ESPN+", note:"La Liga exclusively on ESPN+" }],
   worldcup: [{ name:"FOX", note:"World Cup on FOX (free over-the-air)" }, { name:"FS1", note:"Additional matches on FS1" }, { name:"Univision", note:"Spanish broadcast on Univision" }],
   mls:      [{ name:"Apple TV+", note:"MLS Season Pass on Apple TV+" }, { name:"ESPN+", note:"Select matches on ESPN+" }],
@@ -133,7 +124,7 @@ const STATUS_MAP = {
   "STATUS_CANCELED":    { label:"Canceled", live:false, final:false },
 };
 
-function resolveBC(name) { return BROADCASTER_ALIASES[name?.trim()] || name?.trim(); }
+function resolveBC(name) { return BROADCASTER_ALIASES[name?.trim()]||name?.trim(); }
 function parseBroadcasters(arr) {
   if (!arr?.length) return [];
   return [...new Set(arr.flatMap(b=>b.names||[b.name||b.shortName||""]).map(n=>resolveBC(n)).filter(Boolean))];
@@ -158,31 +149,29 @@ function formatDayHeader(dateStr) {
   if (gd.getTime()===tm.getTime()) return "Tomorrow";
   return d.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});
 }
-function isLiveStatus(name) {
-  return name==="STATUS_IN_PROGRESS"||name==="STATUS_HALFTIME"||name==="STATUS_END_PERIOD";
-}
+function isLiveStatus(n) { return n==="STATUS_IN_PROGRESS"||n==="STATUS_HALFTIME"||n==="STATUS_END_PERIOD"; }
 
-// ── Components ────────────────────────────────────────────────────────────────
+// ── UI Components ─────────────────────────────────────────────────────────────
 
 function LiveDot({ large }) {
-  return <span style={{ display:"inline-block", width:large?9:7, height:large?9:7, borderRadius:"50%", background:"#ff3b3b", marginRight:large?7:5, animation:"pulse 1.2s ease-in-out infinite", flexShrink:0 }} />;
+  return <span style={{ display:"inline-block",width:large?9:7,height:large?9:7,borderRadius:"50%",background:"#ff3b3b",marginRight:large?7:5,animation:"pulse 1.2s ease-in-out infinite",flexShrink:0 }} />;
 }
 
 function BroadcasterPill({ name, small }) {
-  const info = BROADCASTER_MAP[name]||{bg:"#2a2f3f",text:"#fff"};
-  return <span style={{ background:info.bg, color:info.text, fontSize:small?"10px":"11px", fontWeight:700, padding:small?"2px 7px":"3px 9px", borderRadius:4, letterSpacing:"0.4px", whiteSpace:"nowrap", fontFamily:"'DM Sans',sans-serif" }}>{name}</span>;
+  const info=BROADCASTER_MAP[name]||{bg:"#2a2f3f",text:"#fff"};
+  return <span style={{ background:info.bg,color:info.text,fontSize:small?"10px":"11px",fontWeight:700,padding:small?"2px 7px":"3px 9px",borderRadius:4,letterSpacing:"0.4px",whiteSpace:"nowrap",fontFamily:"'DM Sans',sans-serif" }}>{name}</span>;
 }
 
 function TeamBlock({ competitor, showScore, reverse }) {
   const team=competitor?.team||{};
   const winner=competitor?.winner;
   return (
-    <div style={{ display:"flex", flexDirection:reverse?"row-reverse":"row", alignItems:"center", gap:10, flex:1, minWidth:0 }}>
+    <div style={{ display:"flex",flexDirection:reverse?"row-reverse":"row",alignItems:"center",gap:10,flex:1,minWidth:0 }}>
       {team.logo
         ? <img src={team.logo} alt={team.abbreviation||""} style={{ width:36,height:36,objectFit:"contain",flexShrink:0 }} onError={e=>e.target.style.display="none"} />
         : <div style={{ width:36,height:36,borderRadius:"50%",background:"#1e2535",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#8898aa",flexShrink:0 }}>{(team.abbreviation||"?").slice(0,3)}</div>
       }
-      <div style={{ minWidth:0, textAlign:reverse?"right":"left" }}>
+      <div style={{ minWidth:0,textAlign:reverse?"right":"left" }}>
         <div style={{ fontSize:14,fontWeight:winner?700:400,color:winner?"#f0f0f0":"#8898aa",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>
           {team.shortDisplayName||team.displayName||"TBD"}
         </div>
@@ -203,21 +192,33 @@ function GameCard({ game, sport, onClick }) {
   const period=game.status?.type?.shortDetail||"";
   const broadcasters=parseBroadcasters(comp?.broadcasts||[]);
   const isLive=statusInfo.live;
+  const gameSport=game._sport||sport;
+
   return (
     <div className={`card-hover${isLive?" card-live":""}`} onClick={onClick}
       style={{ background:isLive?"linear-gradient(135deg,#0f1420 0%,#1a0a0a 100%)":"#0f1420", border:`1px solid ${isLive?"rgba(255,59,59,0.45)":"#1e2535"}`, borderRadius:16, padding:"16px 18px", display:"flex", flexDirection:"column", gap:12, animation:"fadeUp 0.3s ease both", position:"relative", overflow:"hidden" }}>
       {isLive&&<div style={{ position:"absolute",top:0,left:0,right:0,height:2,background:"linear-gradient(90deg,#ff3b3b,#ff6b6b,#ff3b3b)",backgroundSize:"200% 100%",animation:"shimmer 2s linear infinite" }} />}
+
       <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-        <span style={{ fontSize:12,color:"#5a6478" }}>{isLive?period:formatTime(game.date)}</span>
-        <span style={{ display:"flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,background:isLive?"rgba(255,59,59,0.15)":statusInfo.final?"#1a1f2e":"#141820",color:isLive?"#ff6b6b":statusInfo.final?"#5a6478":"#63b3ed",letterSpacing:"0.5px",textTransform:"uppercase" }}>
-          {isLive&&<LiveDot />}{statusInfo.label}
-        </span>
+        <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+          {/* Show league badge when in All Sports view */}
+          {game._sport&&<span style={{ fontSize:10,fontWeight:700,color:gameSport.accent||"#63b3ed",textTransform:"uppercase",letterSpacing:"0.8px" }}>{gameSport.emoji} {gameSport.label}</span>}
+          {!game._sport&&<span style={{ fontSize:12,color:"#5a6478" }}>{isLive?period:formatTime(game.date)}</span>}
+        </div>
+        <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+          {game._sport&&<span style={{ fontSize:11,color:"#5a6478" }}>{isLive?period:formatTime(game.date)}</span>}
+          <span style={{ display:"flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,background:isLive?"rgba(255,59,59,0.15)":statusInfo.final?"#1a1f2e":"#141820",color:isLive?"#ff6b6b":statusInfo.final?"#5a6478":"#63b3ed",letterSpacing:"0.5px",textTransform:"uppercase" }}>
+            {isLive&&<LiveDot />}{statusInfo.label}
+          </span>
+        </div>
       </div>
+
       <div style={{ display:"flex",alignItems:"center",gap:8 }}>
         <TeamBlock competitor={away} showScore={isLive||statusInfo.final} />
         <span style={{ fontSize:11,color:"#2a3040",fontWeight:700,flexShrink:0 }}>VS</span>
         <TeamBlock competitor={home} showScore={isLive||statusInfo.final} reverse />
       </div>
+
       {broadcasters.length>0&&
         <div style={{ display:"flex",gap:5,flexWrap:"wrap",paddingTop:4,borderTop:"1px solid #141820" }}>
           {broadcasters.slice(0,3).map(b=><BroadcasterPill key={b} name={b} small />)}
@@ -229,41 +230,30 @@ function GameCard({ game, sport, onClick }) {
 
 function SkeletonCard() { return <div className="skeleton" style={{ height:118 }} />; }
 
-// ── Game Detail Panel (bottom sheet on mobile) ────────────────────────────────
+// ── Game Detail ───────────────────────────────────────────────────────────────
 
 function GameDetail({ game, sport, onClose }) {
-  const panelRef = useRef(null);
-  const startY   = useRef(null);
-  const comp     = game.competitions?.[0];
-  const home     = comp?.competitors?.find(c=>c.homeAway==="home");
-  const away     = comp?.competitors?.find(c=>c.homeAway==="away");
-  const statusName = game.status?.type?.name||"";
-  const statusInfo = STATUS_MAP[statusName]||{label:"Scheduled",live:false,final:false};
-  const period   = game.status?.type?.shortDetail||"";
-  const venue    = comp?.venue;
-  const note     = comp?.notes?.[0]?.headline||"";
-  const rawBC    = parseBroadcasters(comp?.broadcasts||[]);
-  const allBC    = rawBC.length>0 ? rawBC.map(name=>({name,note:null})) : (LEAGUE_FALLBACK[sport.id]||[]);
+  const startY=useRef(null);
+  const comp=game.competitions?.[0];
+  const home=comp?.competitors?.find(c=>c.homeAway==="home");
+  const away=comp?.competitors?.find(c=>c.homeAway==="away");
+  const statusName=game.status?.type?.name||"";
+  const statusInfo=STATUS_MAP[statusName]||{label:"Scheduled",live:false,final:false};
+  const period=game.status?.type?.shortDetail||"";
+  const venue=comp?.venue;
+  const note=comp?.notes?.[0]?.headline||"";
+  const rawBC=parseBroadcasters(comp?.broadcasts||[]);
+  const allBC=rawBC.length>0?rawBC.map(name=>({name,note:null})):(LEAGUE_FALLBACK[sport.id]||[]);
 
-  // Swipe-down to close
-  const onTouchStart = e => { startY.current = e.touches[0].clientY; };
-  const onTouchEnd   = e => {
-    if (startY.current===null) return;
-    const delta = e.changedTouches[0].clientY - startY.current;
-    if (delta > 80) onClose();
-    startY.current = null;
-  };
+  const onTouchStart=e=>{ startY.current=e.touches[0].clientY; };
+  const onTouchEnd=e=>{ if(startY.current===null)return; if(e.changedTouches[0].clientY-startY.current>80)onClose(); startY.current=null; };
 
   return (
     <div className="detail-overlay" onClick={onClose}>
-      <div ref={panelRef} className="detail-panel" onClick={e=>e.stopPropagation()}
-        onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-
-        {/* Swipe handle — visible on mobile */}
+      <div className="detail-panel" onClick={e=>e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <div style={{ display:"flex",justifyContent:"center",marginBottom:-10,marginTop:-8 }}>
           <div style={{ width:36,height:4,borderRadius:4,background:"#2a2f3f" }} />
         </div>
-
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
           <div>
             <div style={{ fontSize:12,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",color:sport.accent||"#63b3ed",marginBottom:4 }}>{sport.emoji} {sport.label}</div>
@@ -317,11 +307,7 @@ function GameDetail({ game, sport, onClose }) {
                         <div style={{ paddingTop:10,borderTop:"1px solid #1e2535",display:"flex",flexDirection:"column",gap:6 }}>
                           <div style={{ fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:"#3a4255" }}>No cable? Stream via</div>
                           <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
-                            {alts.map(altName=>{
-                              const alt=STREAMING_ALTS[altName];
-                              if (!alt) return null;
-                              return <a key={altName} href={alt.url} target="_blank" rel="noreferrer" className="watch-btn" style={{ background:alt.bg,color:alt.text,fontSize:11,fontWeight:700,padding:"5px 12px",borderRadius:6,textDecoration:"none",whiteSpace:"nowrap",fontFamily:"'DM Sans',sans-serif" }}>{altName}</a>;
-                            })}
+                            {alts.map(altName=>{ const alt=STREAMING_ALTS[altName]; if(!alt)return null; return <a key={altName} href={alt.url} target="_blank" rel="noreferrer" className="watch-btn" style={{ background:alt.bg,color:alt.text,fontSize:11,fontWeight:700,padding:"5px 12px",borderRadius:6,textDecoration:"none",whiteSpace:"nowrap",fontFamily:"'DM Sans',sans-serif" }}>{altName}</a>; })}
                           </div>
                         </div>
                       }
@@ -331,82 +317,86 @@ function GameDetail({ game, sport, onClose }) {
               </div>
           }
         </div>
-
-        {/* Disclaimer — fix #5 */}
         <div style={{ fontSize:11,color:"#3a4255",textAlign:"center",lineHeight:1.6,paddingTop:4,borderTop:"1px solid #141820" }}>
-          📡 Broadcast info sourced from ESPN's data feed. Listings may vary — always confirm with your provider, especially for soccer matches.
+          📡 Broadcast info sourced from ESPN's data feed. Listings may vary — always confirm with your provider, especially for soccer.
         </div>
       </div>
     </div>
   );
 }
 
-// ── Hero Section ──────────────────────────────────────────────────────────────
+// ── All Sports Homepage View ───────────────────────────────────────────────────
 
-function HeroSection({ liveGames, loadingLive, onGameClick }) {
-  const totalLive = liveGames.length;
-  return (
-    <div style={{ padding:"36px 20px 28px",maxWidth:1100,margin:"0 auto",animation:"heroFade 0.5s ease both" }}>
-      <div style={{ marginBottom:totalLive>0||loadingLive?24:0 }}>
-        <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:12 }}>
-          {loadingLive
-            ? <span style={{ fontSize:12,fontWeight:600,color:"#3a4255",letterSpacing:"1.5px",textTransform:"uppercase" }}>Checking for live games…</span>
-            : totalLive>0
-              ? <><LiveDot large /><span style={{ fontSize:12,fontWeight:700,color:"#ff6b6b",letterSpacing:"1.5px",textTransform:"uppercase" }}>{totalLive} Game{totalLive!==1?"s":""} Live Now</span></>
-              : <span style={{ fontSize:12,fontWeight:600,color:"#3a4255",letterSpacing:"1.5px",textTransform:"uppercase" }}>No games live right now</span>
-          }
+function AllSportsView({ liveGames, loading, onGameClick }) {
+  if (loading) {
+    return (
+      <div style={{ display:"flex",flexDirection:"column",gap:32 }}>
+        <div>
+          <div style={{ fontSize:13,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",color:"#5a6478",marginBottom:14,paddingBottom:10,borderBottom:"1px solid #141820" }}>
+            Checking for live games…
+          </div>
+          <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14 }}>
+            {[1,2,3,4,5,6].map(i=><SkeletonCard key={i}/>)}
+          </div>
         </div>
-        <h1 className="hero-headline" style={{ fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(40px,6.5vw,80px)",letterSpacing:"3px",color:"#f0f0f0",lineHeight:0.93,marginBottom:12 }}>
-          Never Miss<br />
-          <span style={{ background:"linear-gradient(90deg,#63b3ed,#a78bfa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>The Game</span>
-        </h1>
-        <p className="hero-tagline" style={{ fontSize:15,color:"#5a6478",maxWidth:440,lineHeight:1.65 }}>
-          Every live and upcoming game across NFL, NBA, Premier League and more — with exactly where to watch it in the US.
-        </p>
       </div>
+    );
+  }
 
-      {/* Live strip loading skeletons — fix #3 */}
-      {loadingLive&&(
-        <div>
-          <div style={{ fontSize:10,fontWeight:700,letterSpacing:"1.8px",textTransform:"uppercase",color:"#3a4255",marginBottom:12 }}>Live Right Now</div>
-          <div style={{ display:"flex",gap:12,overflow:"hidden" }}>
-            {[1,2,3].map(i=><div key={i} className="skeleton" style={{ minWidth:200,height:110,borderRadius:14,flexShrink:0 }} />)}
-          </div>
+  if (liveGames.length===0) {
+    return (
+      <div style={{ textAlign:"center",padding:"80px 20px" }}>
+        <div style={{ fontSize:52,marginBottom:16 }}>📺</div>
+        <div style={{ fontSize:24,fontWeight:700,color:"#f0f0f0",marginBottom:10,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:"1px" }}>
+          No Games Live Right Now
         </div>
-      )}
+        <div style={{ fontSize:15,color:"#5a6478",maxWidth:360,margin:"0 auto",lineHeight:1.7 }}>
+          Pick a sport above to browse today's schedule and upcoming games.
+        </div>
+        {/* Sport quick picks */}
+        <div style={{ display:"flex",gap:10,flexWrap:"wrap",justifyContent:"center",marginTop:28 }}>
+          {SPORTS.map(s=>(
+            <button key={s.id} onClick={()=>onGameClick(null, s, true)}
+              style={{ background:"#0f1420",border:"1px solid #1e2535",borderRadius:12,padding:"10px 18px",cursor:"pointer",fontSize:14,fontWeight:600,color:"#8898aa",fontFamily:"'DM Sans',sans-serif",transition:"all 0.2s" }}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(99,179,237,0.4)";e.currentTarget.style.color="#f0f0f0";}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor="#1e2535";e.currentTarget.style.color="#8898aa";}}>
+              {s.emoji} {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-      {/* Live games strip */}
-      {!loadingLive&&totalLive>0&&(
-        <div>
-          <div style={{ fontSize:10,fontWeight:700,letterSpacing:"1.8px",textTransform:"uppercase",color:"#3a4255",marginBottom:12 }}>Live Right Now</div>
-          <div style={{ display:"flex",gap:12,overflowX:"auto",paddingBottom:8,scrollbarWidth:"none" }}>
-            {liveGames.slice(0,8).map((game,i)=>{
-              const comp=game.competitions?.[0];
-              const home=comp?.competitors?.find(c=>c.homeAway==="home");
-              const away=comp?.competitors?.find(c=>c.homeAway==="away");
-              const period=game.status?.type?.shortDetail||"Live";
-              const sport=game._sport;
-              return (
-                <div key={game.id} className="hero-live-card" onClick={()=>onGameClick(game,sport)} style={{ animationDelay:`${i*0.06}s` }}>
-                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
-                    <span style={{ fontSize:10,fontWeight:700,color:sport?.accent||"#63b3ed",textTransform:"uppercase",letterSpacing:"0.8px" }}>{sport?.emoji} {sport?.label}</span>
-                    <span style={{ display:"flex",alignItems:"center",fontSize:10,fontWeight:700,color:"#ff6b6b" }}><LiveDot />{period}</span>
-                  </div>
-                  <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",gap:8 }}>
-                    {[away,home].map((c,ci)=>(
-                      <div key={ci} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:3,flex:1 }}>
-                        {c?.team?.logo&&<img src={c.team.logo} alt="" style={{ width:26,height:26,objectFit:"contain" }} onError={e=>e.target.style.display="none"} />}
-                        <span style={{ fontSize:10,color:"#8898aa",textAlign:"center",maxWidth:58,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{c?.team?.abbreviation||"?"}</span>
-                        <span style={{ fontSize:24,fontWeight:800,fontFamily:"'Bebas Neue',sans-serif",color:"#f0f0f0" }}>{c?.score??"-"}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+  // Group live games by sport
+  const grouped = {};
+  liveGames.forEach(g=>{
+    const sid=g._sport?.id||"other";
+    if (!grouped[sid]) grouped[sid]=[];
+    grouped[sid].push(g);
+  });
+
+  return (
+    <div style={{ display:"flex",flexDirection:"column",gap:32 }}>
+      <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:-16 }}>
+        <LiveDot large />
+        <span style={{ fontSize:13,fontWeight:700,color:"#ff6b6b",letterSpacing:"1px",textTransform:"uppercase" }}>
+          {liveGames.length} Game{liveGames.length!==1?"s":""} Live Now
+        </span>
+      </div>
+      {Object.entries(grouped).map(([sid,games])=>{
+        const sport=SPORTS.find(s=>s.id===sid);
+        return (
+          <div key={sid}>
+            <div style={{ fontSize:13,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",color:sport?.accent||"#5a6478",marginBottom:14,paddingBottom:10,borderBottom:`1px solid ${sport?.accent||"#141820"}22` }}>
+              {sport?.emoji} {sport?.label}
+            </div>
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14 }}>
+              {games.map(g=><GameCard key={g.id} game={g} sport={sport} onClick={()=>onGameClick(g,sport,false)} />)}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })}
     </div>
   );
 }
@@ -415,11 +405,11 @@ function HeroSection({ liveGames, loadingLive, onGameClick }) {
 
 function Footer() {
   return (
-    <footer style={{ borderTop:"1px solid #141820",padding:"24px 20px",textAlign:"center" }}>
+    <footer style={{ borderTop:"1px solid #141820",padding:"24px 20px",textAlign:"center",marginTop:40 }}>
       <div style={{ maxWidth:1100,margin:"0 auto",display:"flex",flexDirection:"column",gap:6,alignItems:"center" }}>
         <div style={{ fontSize:13,fontWeight:700,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:"2px",color:"#3a4255" }}>⚡ SPORTZONE</div>
         <div style={{ fontSize:11,color:"#2a3040",maxWidth:480,lineHeight:1.7 }}>
-          Broadcast info is sourced from ESPN's public data feed and is provided for informational purposes only. Listings may differ from what actually airs — always confirm with your TV provider or streaming service, especially for international soccer matches. SportZone is not affiliated with ESPN or any broadcaster.
+          Broadcast info is sourced from ESPN's public data feed and provided for informational purposes only. Listings may differ from what actually airs — always confirm with your provider or streaming service, especially for international soccer. SportZone is not affiliated with ESPN or any broadcaster.
         </div>
         <div style={{ fontSize:11,color:"#2a3040",marginTop:4 }}>© {new Date().getFullYear()} SportZone</div>
       </div>
@@ -432,8 +422,7 @@ function Footer() {
 const REFRESH_MS = 45000;
 
 export default function SportZone() {
-  const getSaved = () => SPORTS.find(s=>s.id===localStorage.getItem("sz_sport"))||SPORTS[0];
-  const [activeSport,   setActiveSport]   = useState(getSaved);
+  const [activeSport,   setActiveSport]   = useState(ALL_SPORTS_ID);
   const [allGames,      setAllGames]      = useState({});
   const [liveGames,     setLiveGames]     = useState([]);
   const [loadingLive,   setLoadingLive]   = useState(true);
@@ -444,14 +433,14 @@ export default function SportZone() {
   const [selectedGame,  setSelectedGame]  = useState(null);
   const [selectedSport, setSelectedSport] = useState(null);
   const [lastUpdated,   setLastUpdated]   = useState(null);
-  const [tsKey,         setTsKey]         = useState(0); // forces timestamp re-animation
+  const [tsKey,         setTsKey]         = useState(0);
   const timerRef = useRef(null);
 
   const fetchDay = useCallback(async (sport, dateStr) => {
     const url=`https://site.api.espn.com/apis/site/v2/sports/${sport.sport}/${sport.league}/scoreboard?dates=${dateStr}&limit=100`;
-    const res=await fetch(url); if (!res.ok) throw new Error("fail");
+    const res=await fetch(url); if(!res.ok) throw new Error("fail");
     return (await res.json()).events||[];
-  }, []);
+  },[]);
 
   const fetchAllDays = useCallback(async (sport, silent=false) => {
     if (!silent) { setLoading(true); setError(null); }
@@ -460,58 +449,88 @@ export default function SportZone() {
       const dates=[0,1,2,3,4,5,6].map(i=>offsetStr(i));
       const results=await Promise.all(dates.map(d=>fetchDay(sport,d)));
       const grouped={};
-      results.forEach((evts,i)=>{ if (evts.length>0) grouped[dates[i]]=evts; });
+      results.forEach((evts,i)=>{ if(evts.length>0) grouped[dates[i]]=evts; });
       setAllGames(grouped);
       setLastUpdated(new Date());
-      setTsKey(k=>k+1); // trigger flash animation on timestamp — fix #4
+      setTsKey(k=>k+1);
     } catch(e) {
       if (!silent) setError("Could not load games. Check your connection and try again.");
     }
     if (!silent) setLoading(false);
     else setRefreshing(false);
-  }, [fetchDay]);
+  },[fetchDay]);
 
   const fetchLiveAll = useCallback(async (isFirst=false) => {
     if (isFirst) setLoadingLive(true);
     try {
       const results=await Promise.all(SPORTS.map(async sport=>{
         const url=`https://site.api.espn.com/apis/site/v2/sports/${sport.sport}/${sport.league}/scoreboard?dates=${todayStr()}&limit=100`;
-        const res=await fetch(url); if (!res.ok) return [];
+        const res=await fetch(url); if(!res.ok) return [];
         return ((await res.json()).events||[]).filter(g=>isLiveStatus(g.status?.type?.name)).map(g=>({...g,_sport:sport}));
       }));
-      setLiveGames(results.flat());
+      const live=results.flat();
+      setLiveGames(live);
+      if (isFirst&&live.length===0) setTimeout(()=>fetchLiveAll(false),6000);
     } catch(e) {}
     if (isFirst) setLoadingLive(false);
-  }, []);
+  },[]);
 
-  useEffect(() => {
-    fetchAllDays(activeSport);
-    localStorage.setItem("sz_sport", activeSport.id);
-  }, [activeSport]);
+  useEffect(()=>{
+    if (activeSport!==ALL_SPORTS_ID) {
+      const sport=SPORTS.find(s=>s.id===activeSport);
+      if (sport) fetchAllDays(sport);
+      localStorage.setItem("sz_sport", activeSport);
+    }
+  },[activeSport]);
 
-  useEffect(() => { fetchLiveAll(true); }, []);
+  useEffect(()=>{ fetchLiveAll(true); },[]);
 
-  useEffect(() => {
+  useEffect(()=>{
     if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current=setInterval(()=>{ fetchAllDays(activeSport,true); fetchLiveAll(false); }, REFRESH_MS);
+    timerRef.current=setInterval(()=>{
+      fetchLiveAll(false);
+      if (activeSport!==ALL_SPORTS_ID) {
+        const sport=SPORTS.find(s=>s.id===activeSport);
+        if (sport) fetchAllDays(sport,true);
+      }
+    }, REFRESH_MS);
     return ()=>clearInterval(timerRef.current);
-  }, [activeSport]);
+  },[activeSport]);
 
-  const handleRefresh = () => { fetchAllDays(activeSport,false); fetchLiveAll(false); };
-  const openGame = (game, sport) => { setSelectedGame(game); setSelectedSport(sport||activeSport); };
+  const handleRefresh = () => {
+    fetchLiveAll(false);
+    if (activeSport!==ALL_SPORTS_ID) {
+      const sport=SPORTS.find(s=>s.id===activeSport);
+      if (sport) fetchAllDays(sport,false);
+    }
+  };
 
-  const today         = todayStr();
-  const tomorrow      = offsetStr(1);
-  const todayGames    = allGames[today]   ||[];
-  const tomorrowGames = allGames[tomorrow]||[];
-  const weekEntries   = Object.entries(allGames).filter(([k])=>k!==today&&k!==tomorrow);
-  const weekCount     = weekEntries.reduce((a,[,v])=>a+v.length,0);
-  const displayGames  = activeDay==="today"?todayGames:activeDay==="tomorrow"?tomorrowGames:[];
+  // Called from AllSportsView quick-pick buttons or live card clicks
+  const handleAllSportsGameClick = (game, sport, switchTab) => {
+    if (switchTab) {
+      setActiveSport(sport.id);
+      setActiveDay("today");
+    } else {
+      setSelectedGame(game);
+      setSelectedSport(sport);
+    }
+  };
+
+  const openGame = (game, sport) => { setSelectedGame(game); setSelectedSport(sport); };
+
+  const currentSport = SPORTS.find(s=>s.id===activeSport);
+  const today        = todayStr();
+  const tomorrow     = offsetStr(1);
+  const todayGames   = allGames[today]   ||[];
+  const tomorrowGames= allGames[tomorrow]||[];
+  const weekEntries  = Object.entries(allGames).filter(([k])=>k!==today&&k!==tomorrow);
+  const weekCount    = weekEntries.reduce((a,[,v])=>a+v.length,0);
+  const displayGames = activeDay==="today"?todayGames:activeDay==="tomorrow"?tomorrowGames:[];
 
   const tabs=[
-    {key:"today",    label:"Today",     count:todayGames.length},
-    {key:"tomorrow", label:"Tomorrow",  count:tomorrowGames.length},
-    {key:"week",     label:"This Week", count:weekCount},
+    {key:"today",    label:"Today",    count:todayGames.length},
+    {key:"tomorrow", label:"Tomorrow", count:tomorrowGames.length},
+    {key:"week",     label:"This Week",count:weekCount},
   ];
 
   return (
@@ -522,38 +541,39 @@ export default function SportZone() {
       <div style={{ background:"rgba(8,11,18,0.96)",borderBottom:"1px solid #141820",position:"sticky",top:0,zIndex:100,backdropFilter:"blur(14px)" }}>
         <div style={{ maxWidth:1100,margin:"0 auto",padding:"0 20px" }}>
           <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 0 9px" }}>
-            <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+            <div style={{ display:"flex",alignItems:"center",gap:10, cursor:"pointer" }} onClick={()=>{setActiveSport(ALL_SPORTS_ID);}}>
               <div style={{ width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#63b3ed,#3182ce)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>⚡</div>
               <span style={{ fontSize:26,fontWeight:800,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:"2px",color:"#f0f0f0" }}>SportZone</span>
             </div>
             <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-              {lastUpdated&&
-                <span key={tsKey} className="timestamp-flash" style={{ fontSize:11,color:"#3a4255" }}>
-                  Updated {lastUpdated.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}
-                </span>
-              }
+              {lastUpdated&&<span key={tsKey} className="timestamp-flash" style={{ fontSize:11,color:"#3a4255" }}>Updated {lastUpdated.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span>}
               <button className="refresh-btn" onClick={handleRefresh} title="Refresh"
                 style={{ background:"#141820",border:"1px solid #1e2535",borderRadius:8,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",color:"#8898aa",fontSize:17 }}>
                 <span className={refreshing?"spinning":""}>↻</span>
               </button>
-              <span style={{ fontSize:12,color:"#5a6478",fontWeight:500 }}>
-                {new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}
-              </span>
+              <span style={{ fontSize:12,color:"#5a6478",fontWeight:500 }}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
             </div>
           </div>
 
-          {/* Sport tabs */}
+          {/* Sport tabs with All Sports first */}
           <div className="tabs-wrap">
+            {/* All Sports tab */}
+            <button className="sport-btn"
+              onClick={()=>setActiveSport(ALL_SPORTS_ID)}
+              style={{ background:activeSport===ALL_SPORTS_ID?"rgba(99,179,237,0.1)":"none",border:"none",padding:"8px 12px",borderRadius:"8px 8px 0 0",fontSize:13,fontWeight:activeSport===ALL_SPORTS_ID?700:500,color:activeSport===ALL_SPORTS_ID?"#63b3ed":"#5a6478",whiteSpace:"nowrap",borderBottom:activeSport===ALL_SPORTS_ID?"2px solid #63b3ed":"2px solid transparent",fontFamily:"'DM Sans',sans-serif",position:"relative" }}>
+              🏟️ <span className="sport-btn-label">All Sports</span>
+              {liveGames.length>0&&activeSport!==ALL_SPORTS_ID&&<span style={{ position:"absolute",top:6,right:3,width:6,height:6,borderRadius:"50%",background:"#ff3b3b",animation:"pulse 1.2s ease-in-out infinite" }} />}
+            </button>
+
             {SPORTS.map(s=>{
-              const active=activeSport.id===s.id;
+              const active=activeSport===s.id;
               const hasLiveNow=liveGames.some(g=>g._sport?.id===s.id);
               return (
                 <button key={s.id} className="sport-btn"
-                  onClick={()=>{ setActiveSport(s); setActiveDay("today"); }}
+                  onClick={()=>{ setActiveSport(s.id); setActiveDay("today"); }}
                   style={{ background:active?"rgba(99,179,237,0.1)":"none",border:"none",padding:"8px 12px",borderRadius:"8px 8px 0 0",fontSize:13,fontWeight:active?700:500,color:active?"#63b3ed":"#5a6478",whiteSpace:"nowrap",borderBottom:active?"2px solid #63b3ed":"2px solid transparent",fontFamily:"'DM Sans',sans-serif",position:"relative" }}>
-                  <span>{s.emoji}</span>
-                  <span className="sport-btn-label"> {s.label}</span>
-                  {hasLiveNow&&<span style={{ position:"absolute",top:6,right:3,width:6,height:6,borderRadius:"50%",background:"#ff3b3b",animation:"pulse 1.2s ease-in-out infinite" }} />}
+                  <span>{s.emoji}</span><span className="sport-btn-label"> {s.label}</span>
+                  {hasLiveNow&&!active&&<span style={{ position:"absolute",top:6,right:3,width:6,height:6,borderRadius:"50%",background:"#ff3b3b",animation:"pulse 1.2s ease-in-out infinite" }} />}
                 </button>
               );
             })}
@@ -561,82 +581,102 @@ export default function SportZone() {
         </div>
       </div>
 
-      {/* ── Hero ── */}
-      <HeroSection liveGames={liveGames} loadingLive={loadingLive} onGameClick={openGame} />
+      {/* ── Hero headline — always visible ── */}
+      <div style={{ padding:"36px 20px 24px",maxWidth:1100,margin:"0 auto",animation:"heroFade 0.5s ease both" }}>
+        <h1 className="hero-headline" style={{ fontFamily:"'Bebas Neue',sans-serif",fontSize:"clamp(40px,6.5vw,80px)",letterSpacing:"3px",color:"#f0f0f0",lineHeight:0.93,marginBottom:12 }}>
+          Never Miss<br />
+          <span style={{ background:"linear-gradient(90deg,#63b3ed,#a78bfa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>The Game</span>
+        </h1>
+        <p className="hero-tagline" style={{ fontSize:15,color:"#5a6478",maxWidth:440,lineHeight:1.65 }}>
+          Every live and upcoming game across NFL, NBA, Premier League and more — with exactly where to watch it in the US.
+        </p>
+      </div>
 
       {/* ── Divider ── */}
       <div style={{ maxWidth:1100,margin:"0 auto",padding:"0 20px" }}>
         <div style={{ borderTop:"1px solid #141820",marginBottom:24 }} />
       </div>
 
-      {/* ── Games body ── */}
+      {/* ── Main content area ── */}
       <div style={{ maxWidth:1100,margin:"0 auto",padding:"0 20px 40px" }}>
 
-        {/* Day tabs */}
-        <div style={{ display:"flex",gap:8,marginBottom:22 }}>
-          {tabs.map(tab=>{
-            const active=activeDay===tab.key;
-            return (
-              <button key={tab.key} onClick={()=>setActiveDay(tab.key)}
-                style={{ background:active?"#141820":"none",border:active?"1px solid #1e2535":"1px solid transparent",borderRadius:10,padding:"9px 18px",cursor:"pointer",fontSize:14,fontWeight:active?700:500,color:active?"#f0f0f0":"#5a6478",display:"flex",alignItems:"center",gap:7,fontFamily:"'DM Sans',sans-serif",transition:"all 0.15s" }}>
-                {tab.label}
-                <span style={{ background:active?"#63b3ed22":"#1e2535",color:active?"#63b3ed":"#5a6478",fontSize:11,fontWeight:700,borderRadius:20,padding:"1px 8px" }}>
-                  {loading&&tab.key!=="week"?"…":tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {/* ALL SPORTS view */}
+        {activeSport===ALL_SPORTS_ID&&(
+          <AllSportsView liveGames={liveGames} loading={loadingLive} onGameClick={handleAllSportsGameClick} />
+        )}
 
-        {loading&&<div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14 }}>{[1,2,3,4,5,6].map(i=><SkeletonCard key={i}/>)}</div>}
+        {/* SINGLE SPORT view */}
+        {activeSport!==ALL_SPORTS_ID&&(
+          <>
+            {/* Day tabs */}
+            <div style={{ display:"flex",gap:8,marginBottom:22 }}>
+              {tabs.map(tab=>{
+                const active=activeDay===tab.key;
+                return (
+                  <button key={tab.key} onClick={()=>setActiveDay(tab.key)}
+                    style={{ background:active?"#141820":"none",border:active?"1px solid #1e2535":"1px solid transparent",borderRadius:10,padding:"9px 18px",cursor:"pointer",fontSize:14,fontWeight:active?700:500,color:active?"#f0f0f0":"#5a6478",display:"flex",alignItems:"center",gap:7,fontFamily:"'DM Sans',sans-serif",transition:"all 0.15s" }}>
+                    {tab.label}
+                    <span style={{ background:active?"#63b3ed22":"#1e2535",color:active?"#63b3ed":"#5a6478",fontSize:11,fontWeight:700,borderRadius:20,padding:"1px 8px" }}>
+                      {loading&&tab.key!=="week"?"…":tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-        {!loading&&error&&
-          <div style={{ textAlign:"center",padding:"60px 0" }}>
-            <div style={{ fontSize:40,marginBottom:12 }}>⚠️</div>
-            <div style={{ fontSize:15,color:"#5a6478",marginBottom:20 }}>{error}</div>
-            <button onClick={handleRefresh} style={{ background:"#141820",border:"1px solid #1e2535",borderRadius:10,padding:"10px 24px",cursor:"pointer",color:"#f0f0f0",fontSize:14,fontWeight:600,fontFamily:"'DM Sans',sans-serif" }}>Try Again</button>
-          </div>
-        }
+            {loading&&<div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14 }}>{[1,2,3,4,5,6].map(i=><SkeletonCard key={i}/>)}</div>}
 
-        {!loading&&!error&&activeDay!=="week"&&displayGames.length===0&&
-          <div style={{ textAlign:"center",padding:"70px 0" }}>
-            <div style={{ fontSize:48,marginBottom:14 }}>{activeSport.emoji}</div>
-            <div style={{ fontSize:20,fontWeight:700,color:"#f0f0f0",marginBottom:8,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:"1px" }}>No {activeSport.label} games {activeDay==="today"?"today":"tomorrow"}</div>
-            <div style={{ fontSize:14,color:"#5a6478" }}>Try checking This Week or switch to another sport.</div>
-          </div>
-        }
-
-        {!loading&&!error&&activeDay!=="week"&&displayGames.length>0&&
-          <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14 }}>
-            {displayGames.map(g=><GameCard key={g.id} game={g} sport={activeSport} onClick={()=>openGame(g,activeSport)} />)}
-          </div>
-        }
-
-        {!loading&&!error&&activeDay==="week"&&
-          (weekEntries.length===0
-            ? <div style={{ textAlign:"center",padding:"70px 0" }}>
-                <div style={{ fontSize:48,marginBottom:14 }}>{activeSport.emoji}</div>
-                <div style={{ fontSize:20,fontWeight:700,color:"#f0f0f0",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:"1px" }}>No upcoming {activeSport.label} games this week</div>
+            {!loading&&error&&
+              <div style={{ textAlign:"center",padding:"60px 0" }}>
+                <div style={{ fontSize:40,marginBottom:12 }}>⚠️</div>
+                <div style={{ fontSize:15,color:"#5a6478",marginBottom:20 }}>{error}</div>
+                <button onClick={handleRefresh} style={{ background:"#141820",border:"1px solid #1e2535",borderRadius:10,padding:"10px 24px",cursor:"pointer",color:"#f0f0f0",fontSize:14,fontWeight:600,fontFamily:"'DM Sans',sans-serif" }}>Try Again</button>
               </div>
-            : <div style={{ display:"flex",flexDirection:"column",gap:32 }}>
-                {weekEntries.sort(([a],[b])=>a.localeCompare(b)).map(([key,games])=>(
-                  <div key={key}>
-                    <div style={{ fontSize:13,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",color:"#5a6478",marginBottom:14,paddingBottom:10,borderBottom:"1px solid #141820" }}>
-                      {formatDayHeader(games[0].date)}
-                    </div>
-                    <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14 }}>
-                      {games.map(g=><GameCard key={g.id} game={g} sport={activeSport} onClick={()=>openGame(g,activeSport)} />)}
-                    </div>
+            }
+
+            {!loading&&!error&&activeDay!=="week"&&displayGames.length===0&&
+              <div style={{ textAlign:"center",padding:"70px 0" }}>
+                <div style={{ fontSize:48,marginBottom:14 }}>{currentSport?.emoji}</div>
+                <div style={{ fontSize:20,fontWeight:700,color:"#f0f0f0",marginBottom:8,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:"1px" }}>
+                  No {currentSport?.label} games {activeDay==="today"?"today":"tomorrow"}
+                </div>
+                <div style={{ fontSize:14,color:"#5a6478" }}>Try checking This Week or switch to another sport.</div>
+              </div>
+            }
+
+            {!loading&&!error&&activeDay!=="week"&&displayGames.length>0&&
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14 }}>
+                {displayGames.map(g=><GameCard key={g.id} game={g} sport={currentSport} onClick={()=>openGame(g,currentSport)} />)}
+              </div>
+            }
+
+            {!loading&&!error&&activeDay==="week"&&
+              (weekEntries.length===0
+                ? <div style={{ textAlign:"center",padding:"70px 0" }}>
+                    <div style={{ fontSize:48,marginBottom:14 }}>{currentSport?.emoji}</div>
+                    <div style={{ fontSize:20,fontWeight:700,color:"#f0f0f0",fontFamily:"'Bebas Neue',sans-serif",letterSpacing:"1px" }}>No upcoming {currentSport?.label} games this week</div>
                   </div>
-                ))}
-              </div>
-          )
-        }
+                : <div style={{ display:"flex",flexDirection:"column",gap:32 }}>
+                    {weekEntries.sort(([a],[b])=>a.localeCompare(b)).map(([key,games])=>(
+                      <div key={key}>
+                        <div style={{ fontSize:13,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",color:"#5a6478",marginBottom:14,paddingBottom:10,borderBottom:"1px solid #141820" }}>
+                          {formatDayHeader(games[0].date)}
+                        </div>
+                        <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14 }}>
+                          {games.map(g=><GameCard key={g.id} game={g} sport={currentSport} onClick={()=>openGame(g,currentSport)} />)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+              )
+            }
+          </>
+        )}
       </div>
 
       <Footer />
 
-      {selectedGame&&<GameDetail game={selectedGame} sport={selectedSport||activeSport} onClose={()=>{ setSelectedGame(null); setSelectedSport(null); }} />}
+      {selectedGame&&<GameDetail game={selectedGame} sport={selectedSport||currentSport||SPORTS[0]} onClose={()=>{ setSelectedGame(null); setSelectedSport(null); }} />}
     </>
   );
 }
